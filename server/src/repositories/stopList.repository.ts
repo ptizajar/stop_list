@@ -11,6 +11,10 @@ export const dishRepo = {
   async findById(id: string): Promise<Dish | null> {
     return prisma.dish.findUnique({ where: { id } }) as Promise<Dish | null>;
   },
+
+  async findAll(): Promise<Dish[]> {
+    return prisma.dish.findMany({ orderBy: { name: 'asc' } });
+  },
 };
 
 export const stopListRepo = {
