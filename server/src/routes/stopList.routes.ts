@@ -1,7 +1,7 @@
 // server/src/routes/stopList.routes.ts
 import { Router } from 'express';
 import { createStopListService } from '../services/stopList.service';
-import { dishRepo, stopListRepo, prisma } from '../repositories/stopList.repository';
+import { dishRepo, stopListRepo } from '../repositories/stopList.repository';
 import { validate, createStopListSchema } from '../middleware/validate';
 
 const router = Router();
@@ -14,7 +14,7 @@ const service = createStopListService({
 // Получить список всех блюд из БД
 router.get('/dishes', async (_req, res, next) => {
 	try {
-		const dishes = await prisma.dish.findMany({ orderBy: { name: 'asc' } });
+		const dishes = await dishRepo.findAll();
 		res.json(dishes);
 	} catch (err) {
 		next(err);
