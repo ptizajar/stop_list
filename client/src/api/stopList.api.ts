@@ -27,6 +27,13 @@ export interface CreateStopEntryInput {
   durationMinutes: number;
 }
 
+export interface HistoryResponse {
+  items: StopListEntryView[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export const api = {
   getDishes: async (): Promise<Dish[]> => {
     const res = await fetch('/api/dishes');
@@ -65,4 +72,14 @@ export const api = {
     }
     return body;
   },
+
+  async getHistory(limit = 10, offset = 0): Promise<HistoryResponse> {
+    const res = await fetch(`/api/stop-list/history?limit=${limit}&offset=${offset}`);
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error?.message || 'Не удалось загрузить историю');
+    }
+    return res.json();
+  },
 };
+

@@ -1,4 +1,3 @@
-// server/src/repositories/stopList.repo.ts
 import { PrismaClient } from '@prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import path from 'path';
@@ -18,7 +17,7 @@ export const stopListRepo = {
   async findByDishId(dishId: string): Promise<StopListEntry[]> {
     return prisma.stopListEntry.findMany({
       where: { dishId },
-      orderBy: { stoppedAt: 'desc' }
+      orderBy: { stoppedAt: 'desc' },
     });
   },
 
@@ -29,7 +28,13 @@ export const stopListRepo = {
     }) as unknown as Promise<(StopListEntry & { dish: Dish })[]>;
   },
 
-  async create(data: { dishId: string; reason: string; stoppedAt: Date; expiresAt: Date; returnedAt: null }): Promise<StopListEntry> {
+  async create(data: {
+    dishId: string;
+    reason: string;
+    stoppedAt: Date;
+    expiresAt: Date;
+    returnedAt: null;
+  }): Promise<StopListEntry> {
     return prisma.stopListEntry.create({ data });
   },
 
@@ -43,22 +48,36 @@ export const stopListRepo = {
       data: { returnedAt },
     });
   },
-  
-  // Для истории (с пагинацией)
-  async findHistory(limit: number, offset: number): Promise<(StopListEntry & { dish: Dish })[]> {
-    return prisma.stopListEntry.findMany({
-      where: {
-        OR: [
-          { returnedAt: { not: null } },
-          { expiresAt: { lte: new Date() } } // Тут можно использовать текущее время для фильтра БД, но по ТЗ лучше фильтровать в сервисе или передавать now
-        ]
-      },
-      include: { dish: true },
-      orderBy: { stoppedAt: 'desc' },
-      take: limit,
-      skip: offset,
-    }) as unknown as Promise<(StopListEntry & { dish: Dish })[]>;
-  }
+
+  // Для истории (с пагинацией) — передаем now снаружи
+  async findHistory(
+    limit: number,
+    offset: number,
+    now: Date
+  ): Promise<{ items: (StopListEntry & { dish: Dish })[]; total: number }> {
+    const where = {
+      OR: [
+        { returnedAt: { not: null } },
+        { expiresAt: { lte: now } },
+      ],
+    };
+
+    const [items, total] = await Promise.all([
+      prisma.stopListEntry.findMany({
+        where,
+        include: { dish: true },
+        orderBy: { stoppedAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.stopListEntry.count({ where }),
+    ]);
+
+    return {
+      items: items as unknown as (StopListEntry & { dish: Dish })[],
+      total,
+    };
+  },
 };
 
 export type DishRepo = typeof dishRepo;
