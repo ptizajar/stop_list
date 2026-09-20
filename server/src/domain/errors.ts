@@ -1,24 +1,26 @@
-export class AppError extends Error {
-  constructor(public statusCode: number, message: string, public code: string) {
+// server/src/domain/errors.ts
+
+export class DomainError extends Error {
+  constructor(public message: string, public statusCode: number, public code: string) {
     super(message);
-    this.name = 'AppError';
+    this.name = this.constructor.name;
   }
 }
 
-export class NotFoundError extends AppError {
+export class NotFoundError extends DomainError {
   constructor(message: string) {
-    super(404, message, 'NOT_FOUND');
+    super(message, 404, 'NOT_FOUND');
   }
 }
 
-export class ConflictError extends AppError {
+export class ConflictError extends DomainError {
   constructor(message: string) {
-    super(409, message, 'CONFLICT');
+    super(message, 409, 'CONFLICT');
   }
 }
 
-export class ValidationError extends AppError {
+export class ValidationError extends DomainError {
   constructor(message: string) {
-    super(422, message, 'VALIDATION_ERROR');
+    super(message, 422, 'VALIDATION_ERROR');
   }
 }
