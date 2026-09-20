@@ -1,0 +1,27 @@
+// server/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Dish {
+  id       String          @id @default(uuid())
+  name     String
+  category String          // 'Кухня' | 'Бар' | 'Десерты'
+  price    Int             // В рублях, целое
+  stops    StopListEntry[]
+}
+
+model StopListEntry {
+  id              String    @id @default(uuid())
+  dishId          String
+  dish            Dish      @relation(fields: [dishId], references: [id])
+  reason          String
+  stoppedAt       DateTime  @default(now())
+  expiresAt       DateTime
+  returnedAt      DateTime?
+}
