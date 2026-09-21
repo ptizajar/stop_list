@@ -1,124 +1,66 @@
 # Stop List
 
-Веб-приложение для управления стоп-листом блюд на смене.
+Тестовое задание Junior Fullstack Developer.
 
-## Стек
+**Demo:** https://stop-list.onrender.com/
 
-* React + TypeScript + Vite
-* Node.js + Express + TypeScript
-* Prisma
-* SQLite
+## Stack
+
+* Node.js 20+
+* Express 5
+* TypeScript
+* React + Vite
+* Prisma + SQLite
 * Zod
 * TanStack Query
-* Vitest
-* Supertest
 
 ## Запуск
 
-Требования:
+### Требования
 
 * Node.js 20+
 * npm
 
-Установить зависимости из корня:
+### Development
 
 ```bash
-npm install
-```
-
-Запустить клиент и сервер одновременно:
-
-```bash
-npm run dev
-```
-
-После запуска:
-
-* frontend: http://localhost:5173
-* backend: http://127.0.0.1:3000
-
-Если порт 5173 занят, Vite автоматически выберет следующий свободный порт.
-
-### Отдельный запуск
-
-Backend:
-
-```bash
-cd server
 npm install
 npm run dev
 ```
 
-Frontend:
+`npm install` автоматически устанавливает зависимости frontend/backend, генерирует Prisma Client, применяет migrations и заполняет базу тестовыми данными.
+
+`npm run dev` запускает frontend и backend в development-режиме.
+
+### Production
 
 ```bash
-cd client
-npm install
-npm run dev
+npm run build
+npm run start
 ```
 
-## Environment
+`npm run build` собирает backend и frontend.
 
-Backend использует переменную:
+`npm run start` запускает production backend из `server/dist`.
+
+### Environment
+
+Backend использует `server/.env`.
+
+Пример:
 
 ```env
+DATABASE_URL="file:./dev.db"
 PORT=3000
 ```
 
-Пример находится в:
+Пример переменных окружения:
 
 ```text
 server/.env.example
 ```
 
-При отсутствии `PORT` сервер использует порт `3000`.
-
-SQLite database:
-
-```text
-server/prisma/dev.db
-```
-
-Файл базы данных не хранится в Git.
-
-## Тесты
-
-Запустить все серверные тесты:
-
-```bash
-npm test
-```
-
-Или непосредственно из `server`:
-
-```bash
-cd server
-npm test
-```
-
-В проекте есть unit-тесты бизнес-логики и integration/API-тесты.
-
-## Build
-
-Собрать backend и frontend из корня:
-
-```bash
-npm run build
-```
-
-Backend:
-
-```text
-server/dist
-```
-
-Frontend:
-
-```text
-client/dist
-```
-
-## API
+# API
 
 Base URL:
 
@@ -126,83 +68,72 @@ Base URL:
 /api
 ```
 
-### Получить блюда
+## POST `/api/stop-list`
 
-```http
-GET /api/dishes
-```
+Добавить блюдо в стоп-лист.
 
-Пример ответа:
-
-```json
-[
-  {
-    "id": "dish-id",
-    "name": "Паста Карбонара",
-    "category": "Кухня",
-    "price": 650
-  }
-]
-```
-
-Категории:
-
-* `Кухня`
-* `Бар`
-* `Десерты`
-
-В базе предварительно создаётся 12 блюд.
-
----
-
-### Добавить блюдо в стоп-лист
-
-```http
-POST /api/stop-list
-Content-Type: application/json
-```
-
-Request:
+### Request
 
 ```json
 {
-  "dishId": "dish-id",
+  "dishId": 1,
   "reason": "Закончился основной ингредиент",
   "durationMinutes": 60
 }
 ```
 
-Response `201`:
+### Response `201`
 
 ```json
 {
-  "id": "stop-entry-id",
-  "dishId": "dish-id",
+  "id": 1,
+  "dishId": 1,
   "reason": "Закончился основной ингредиент",
-  "stoppedAt": "2026-01-01T12:00:00.000Z",
-  "expiresAt": "2026-01-01T13:00:00.000Z",
-  "returnedAt": null,
-  "dish": {
-    "id": "dish-id",
-    "name": "Паста Карбонара",
-    "category": "Кухня",
-    "price": 650
-  },
-  "status": "active",
-  "minutesLeft": 60
+  "durationMinutes": 60,
+  "expiresAt": "2026-09-21T15:00:00.000Z"
 }
 ```
 
-Ограничения:
+### Errors
 
-* `reason`: от 5 до 200 символов после trim;
-* `durationMinutes`: целое число от 15 до 720;
-* неизвестное блюдо → `404`;
-* уже активное блюдо → `409`.
+`404` — блюдо не найдено:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Dish not found"
+  }
+}
+```
+
+`409` — блюдо уже находится в активном стоп-листе:
+
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Dish is already in stop list"
+  }
+}
+```
+
+`422` — ошибка валидации:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed"
+  }
+}
+```
 
 ---
 
-### Получить активный стоп-лист
+## GET `/api/stop-list`
+
+Получить активные стопы.
 
 ```http
 GET /api/stop-list
@@ -214,144 +145,132 @@ GET /api/stop-list
 GET /api/stop-list?category=Кухня
 ```
 
-Response:
+### Response `200`
 
 ```json
 [
   {
-    "id": "stop-entry-id",
-    "dishId": "dish-id",
+    "id": 1,
+    "dishId": 1,
     "reason": "Закончился основной ингредиент",
-    "stoppedAt": "2026-01-01T12:00:00.000Z",
-    "expiresAt": "2026-01-01T13:00:00.000Z",
-    "returnedAt": null,
-    "dish": {
-      "id": "dish-id",
-      "name": "Паста Карбонара",
-      "category": "Кухня",
-      "price": 650
-    },
-    "status": "active",
+    "expiresAt": "2026-09-21T15:00:00.000Z",
     "minutesLeft": 42
   }
 ]
 ```
 
-Записи с `expiresAt <= now` автоматически считаются неактивными.
+Возвращаются только активные записи.
 
 ---
 
-### Вернуть блюдо раньше срока
+## PATCH `/api/stop-list/:id/return`
+
+Досрочно вернуть блюдо из стоп-листа.
 
 ```http
-PATCH /api/stop-list/:id/return
+PATCH /api/stop-list/1/return
 ```
 
-Response `200` содержит фактическое время возврата в `returnedAt`.
+При возврате запись сохраняется в истории с `returnedAt`.
 
-Повторный возврат уже возвращённой или истёкшей записи:
+### Errors
 
-```http
-409 Conflict
-```
+`404` — запись не найдена.
 
-Неизвестная запись:
+`409` — запись уже завершена или возвращена.
 
-```http
-404 Not Found
+Пример:
+
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Stop list entry is not active"
+  }
+}
 ```
 
 ---
 
-### История стоп-листа
+## GET `/api/stop-list/history`
+
+Получить историю завершённых стопов.
 
 ```http
 GET /api/stop-list/history
 ```
 
-По умолчанию:
-
-* `limit = 20`
-* `offset = 0`
-
-Пример:
+Поддерживаются `limit` и `offset`:
 
 ```http
 GET /api/stop-list/history?limit=10&offset=20
 ```
 
-Response:
+По умолчанию:
 
-```json
-{
-  "items": [],
-  "total": 0,
-  "limit": 10,
-  "offset": 20
-}
+```text
+limit = 20
+offset = 0
 ```
 
-История содержит возвращённые и автоматически истёкшие записи и сортируется от новых к старым.
+### Response `200`
 
-Допустимые значения:
+```json
+[
+  {
+    "id": 1,
+    "dishId": 1,
+    "reason": "Закончился основной ингредиент",
+    "durationMinutes": 60,
+    "expiresAt": "2026-09-21T15:00:00.000Z",
+    "returnedAt": "2026-09-21T14:30:00.000Z"
+  }
+]
+```
 
-* `limit`: 1–100;
-* `offset`: 0 или больше.
+Записи возвращаются от новых к старым.
 
 ---
 
-## Ошибки
+# Валидация и ошибки
 
-API использует единый формат:
+Для валидации используется Zod.
 
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "body.reason: Причина от 5 символов"
-  }
-}
-```
+* `reason`: 5–200 символов;
+* `durationMinutes`: integer, 15–720;
+* `category`: `Кухня`, `Бар`, `Десерты`.
 
 Основные HTTP-коды:
 
-| Код   | Назначение                |
-| ----- | ------------------------- |
-| `201` | запись успешно создана    |
-| `200` | успешный запрос           |
-| `400` | некорректный запрос       |
-| `404` | ресурс не найден          |
-| `409` | конфликт состояния        |
-| `422` | ошибка валидации          |
-| `500` | внутренняя ошибка сервера |
+* `200` — успешный запрос;
+* `201` — создание записи;
+* `400` — некорректный request/JSON;
+* `404` — ресурс не найден;
+* `409` — конфликт состояния;
+* `422` — ошибка валидации;
+* `500` — внутренняя ошибка сервера.
 
-Валидация выполняется на сервере с помощью Zod. Клиентская валидация используется только для мгновенной обратной связи.
+---
 
-## Архитектура
+# Архитектурные решения
 
-Бизнес-логика стоп-листа находится в `server/src/services` и не зависит от Express. Работа с текущим временем передаётся в сервис через `now`, что позволяет детерминированно тестировать границы срока действия. Репозитории отделены от бизнес-логики интерфейсами, поэтому сервис можно тестировать без привязки к HTTP. Express отвечает за маршрутизацию, валидацию входных данных и обработку ошибок, а React работает с API через TanStack Query.
+В качестве хранилища выбран **SQLite + Prisma**: для небольшого тестового приложения отдельный database server избыточен, а Prisma даёт типизированный доступ к данным и миграции. Бизнес-логика вынесена в **service layer** и не зависит от Express, поэтому её можно тестировать отдельно от HTTP. Доступ к базе изолирован через **repository layer**, а validation выполняется отдельно от бизнес-логики. Текущее время передаётся в service через `now()`, что позволяет детерминированно тестировать истечение стоп-листа и граничные случаи.
 
-## Структура проекта
+---
 
-```text
-.
-├── client/
-│   └── src/
-├── server/
-│   ├── prisma/
-│   └── src/
-│       ├── domain/
-│       ├── middleware/
-│       ├── repositories/
-│       ├── routes/
-│       ├── seed/
-│       ├── services/
-│       └── tests/
-├── .gitignore
-├── package.json
-└── README.md
+# Что бы я доделала при наличии времени
+
+* добавить exit-анимацию при автоматическом исчезновении истёкшего стопа;
+* добавить E2E-тесты frontend;
+* база данных на PostgreSQL и сборка через Docker compose;
+* деплой frontend и backend отдельно
+
+---
+
+# Tests
+
+```bash
+npm test
 ```
 
-## Что можно улучшить
-
-Текущая реализация использует SQLite, что подходит для локального запуска и тестового задания. Для production можно заменить SQLite на PostgreSQL без изменения бизнес-логики благодаря слою репозиториев. Также можно добавить Docker Compose для воспроизводимого запуска окружения и настроить production deployment frontend/backend.
+Проект содержит unit- и API-тесты для основной бизнес-логики, временных границ, конфликтов, возврата из стоп-листа, валидации и pagination.
