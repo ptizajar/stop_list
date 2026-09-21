@@ -135,3 +135,19 @@
   background-color: var(--accent-color);
   color: #fff;
 }
+
+.cardEnter {
+  animation: cardAppear 200ms ease;
+}
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

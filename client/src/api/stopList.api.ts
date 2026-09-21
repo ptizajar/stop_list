@@ -1,5 +1,3 @@
-
-
 export type DishCategory = 'Кухня' | 'Бар' | 'Десерты';
 
 export interface Dish {
@@ -34,52 +32,120 @@ export interface HistoryResponse {
   offset: number;
 }
 
+export interface ApiErrorResponse {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(
+    message: string,
+    status: number,
+    code?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function handleResponse<T>(
+  res: Response,
+  fallbackMessage: string
+): Promise<T> {
+  let body: T | ApiErrorResponse | null = null;
+
+  try {
+    body = await res.json();
+  } catch {
+    // Ответ может быть пустым или не JSON.
+  }
+
+  if (!res.ok) {
+    const errorBody = body as ApiErrorResponse | null;
+
+    throw new ApiError(
+      errorBody?.error?.message || fallbackMessage,
+      res.status,
+      errorBody?.error?.code
+    );
+  }
+
+  return body as T;
+}
+
 export const api = {
   getDishes: async (): Promise<Dish[]> => {
     const res = await fetch('/api/dishes');
-    if (!res.ok) throw new Error('Не удалось загрузить список блюд');
-    return res.json();
+
+    return handleResponse<Dish[]>(
+      res,
+      'Не удалось загрузить список блюд'
+    );
   },
 
-  getActiveStopList: async (category?: string): Promise<StopListEntryView[]> => {
-    const url = category ? `/api/stop-list?category=${encodeURIComponent(category)}` : '/api/stop-list';
+  getActiveStopList: async (
+    category?: string
+  ): Promise<StopListEntryView[]> => {
+    const url = category
+      ? `/api/stop-list?category=${encodeURIComponent(category)}`
+      : '/api/stop-list';
+
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Не удалось загрузить стоп-лист');
-    return res.json();
+
+    return handleResponse<StopListEntryView[]>(
+      res,
+      'Не удалось загрузить стоп-лист'
+    );
   },
 
-  stopDish: async (data: CreateStopEntryInput): Promise<StopListEntryView> => {
+  stopDish: async (
+    data: CreateStopEntryInput
+  ): Promise<StopListEntryView> => {
     const res = await fetch('/api/stop-list', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(data),
     });
-    
-    const body = await res.json();
-    if (!res.ok) {
-      throw new Error(body.error?.message || 'Ошибка при постановке в стоп');
-    }
-    return body;
+
+    return handleResponse<StopListEntryView>(
+      res,
+      'Ошибка при постановке в стоп'
+    );
   },
 
-  returnDish: async (id: string): Promise<StopListEntryView> => {
+  returnDish: async (
+    id: string
+  ): Promise<StopListEntryView> => {
     const res = await fetch(`/api/stop-list/${id}/return`, {
       method: 'PATCH',
     });
-    const body = await res.json();
-    if (!res.ok) {
-      throw new Error(body.error?.message || 'Ошибка при возврате в продажу');
-    }
-    return body;
+
+    return handleResponse<StopListEntryView>(
+      res,
+      'Ошибка при возврате в продажу'
+    );
   },
 
-  async getHistory(limit = 10, offset = 0): Promise<HistoryResponse> {
-    const res = await fetch(`/api/stop-list/history?limit=${limit}&offset=${offset}`);
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error?.message || 'Не удалось загрузить историю');
-    }
-    return res.json();
+  getHistory: async (
+    limit = 10,
+    offset = 0
+  ): Promise<HistoryResponse> => {
+    const res = await fetch(
+      `/api/stop-list/history?limit=${limit}&offset=${offset}`
+    );
+
+    return handleResponse<HistoryResponse>(
+      res,
+      'Не удалось загрузить историю'
+    );
   },
 };
-

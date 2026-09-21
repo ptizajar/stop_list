@@ -15,6 +15,9 @@ export const App: React.FC = () => {
     activeDishIds,
     isLoading,
     isHistoryLoading,
+    isError,
+    error,
+    refetch,
     historyPage,
     setHistoryPage,
     historyLimit,
@@ -22,6 +25,7 @@ export const App: React.FC = () => {
     isStopping,
     returnDish,
     isReturning,
+    onEntryExpired
   } = useStopList(selectedCategory || undefined);
 
   return (
@@ -31,6 +35,18 @@ export const App: React.FC = () => {
       </header>
 
       <main className="main-content">
+        {isError && (
+          <div style={{ textAlign: "center", padding: "20px" }}>
+            <p>
+              Не удалось загрузить данные.
+              {error instanceof Error ? ` ${error.message}` : ""}
+            </p>
+
+            <button type="button" onClick={refetch}>
+              Повторить
+            </button>
+          </div>
+        )}
         {/* Блок 1: Форма постановки + Активный стоп-лист */}
         <div className="top-section">
           <StopDishForm
@@ -48,6 +64,7 @@ export const App: React.FC = () => {
             isReturning={isReturning}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            onEntryExpired={onEntryExpired}
             isLoading={isLoading}
           />
         </div>
