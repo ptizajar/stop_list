@@ -1,16 +1,46 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import path from 'path';
-import type { Dish, StopListEntry } from '../domain/stopList';
+import type {
+  Dish,
+  DishCategory,
+  StopListEntry,
+} from '../domain/stopList';
 
 const dbPath = path.resolve(__dirname, '../../prisma/dev.db');
 const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
 export const prisma = new PrismaClient({ adapter });
 
+
+
 export const dishRepo = {
   async findById(id: string): Promise<Dish | null> {
-    return prisma.dish.findUnique({ where: { id } }) as Promise<Dish | null>;
+    const dish = await prisma.dish.findUnique({
+      where: { id },
+    });
+
+    if (!dish) return null;
+
+    return {
+      id: dish.id,
+      name: dish.name,
+      category: dish.category as DishCategory,
+      price: dish.price,
+    };
   },
+  async findAll(): Promise<Dish[]> {
+    const dishes = await prisma.dish.findMany({
+      orderBy: { name: 'asc' },
+    });
+
+    return dishes.map((dish) => ({
+      id: dish.id,
+      name: dish.name,
+      category: dish.category as DishCategory,
+      price: dish.price,
+    }));
+  },
+
 };
 
 export const stopListRepo = {
@@ -80,5 +110,34 @@ export const stopListRepo = {
   },
 };
 
-export type DishRepo = typeof dishRepo;
-export type StopListRepo = typeof stopListRepo;
+export interface DishRepo {
+  findById(id: string): Promise<Dish | null>;
+  findAll(): Promise<Dish[]>;
+}
+
+export interface StopListRepo {
+  findByDishId(dishId: string): Promise<StopListEntry[]>;
+
+  findAllWithDish(): Promise<(StopListEntry & { dish: Dish })[]>;
+
+  create(data: {
+    dishId: string;
+    reason: string;
+    stoppedAt: Date;
+    expiresAt: Date;
+    returnedAt: null;
+  }): Promise<StopListEntry>;
+
+  findById(id: string): Promise<StopListEntry | null>;
+
+  updateReturnedAt(id: string, returnedAt: Date): Promise<StopListEntry>;
+
+  findHistory(
+    limit: number,
+    offset: number,
+    now: Date
+  ): Promise<{
+    items: (StopListEntry & { dish: Dish })[];
+    total: number;
+  }>;
+}
