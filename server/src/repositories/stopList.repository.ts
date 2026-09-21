@@ -3,7 +3,6 @@ import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import path from 'path';
 import type {
   Dish,
-  DishCategory,
   StopListEntry,
 } from '../domain/stopList';
 
@@ -24,7 +23,7 @@ export const dishRepo = {
     return {
       id: dish.id,
       name: dish.name,
-      category: dish.category as DishCategory,
+      category: dish.category,
       price: dish.price,
     };
   },
@@ -36,7 +35,7 @@ export const dishRepo = {
     return dishes.map((dish) => ({
       id: dish.id,
       name: dish.name,
-      category: dish.category as DishCategory,
+      category: dish.category,
       price: dish.price,
     }));
   },
@@ -55,7 +54,7 @@ export const stopListRepo = {
     return prisma.stopListEntry.findMany({
       include: { dish: true },
       orderBy: { stoppedAt: 'desc' },
-    }) as unknown as Promise<(StopListEntry & { dish: Dish })[]>;
+    });
   },
 
   async create(data: {
@@ -104,7 +103,7 @@ export const stopListRepo = {
     ]);
 
     return {
-      items: items as unknown as (StopListEntry & { dish: Dish })[],
+      items,
       total,
     };
   },

@@ -1,11 +1,11 @@
 // server/src/domain/stopList.ts
 
-export type DishCategory = 'Кухня' | 'Бар' | 'Десерты';
+
 
 export interface Dish {
   id: string;
   name: string;
-  category: DishCategory;
+  category: string;
   price: number; // целое, рубли
 }
 
