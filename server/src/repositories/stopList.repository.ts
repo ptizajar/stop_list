@@ -7,7 +7,7 @@ import type {
   StopListEntry,
 } from '../domain/stopList';
 
-const dbPath = path.resolve(__dirname, '../../prisma/dev.db');
+const dbPath = path.resolve(process.cwd(), 'prisma/dev.db');
 const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
 export const prisma = new PrismaClient({ adapter });
 

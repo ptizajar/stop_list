@@ -1,6 +1,6 @@
 // server/src/services/stopList.service.ts
 import { ConflictError, NotFoundError } from '../domain/errors';
-import type { CreateStopEntryInput, StopListEntry } from '../domain/stopList';
+import type { CreateStopEntryInput, StopListEntryView } from '../domain/stopList';
 import type { DishRepo, StopListRepo } from '../repositories/stopList.repository';
 import { isActive, toView } from '../domain/stopList';
 
@@ -10,28 +10,40 @@ export function createStopListService(deps: {
 	now: () => Date;
 }) {
 	return {
-		async stopDish(input: CreateStopEntryInput): Promise<StopListEntry> {
+		async stopDish(input: CreateStopEntryInput): Promise<StopListEntryView> {
 			const dish = await deps.dishes.findById(input.dishId);
-			if (!dish) throw new NotFoundError(`Блюдо с id ${input.dishId} не найдено`);
+
+			if (!dish) {
+				throw new NotFoundError(`Блюдо с id ${input.dishId} не найдено`);
+			}
 
 			const now = deps.now();
 			const existing = await deps.stopList.findByDishId(input.dishId);
 
-			// Если блюдо уже в активном стоп-листе - кидаем 409
 			if (existing.some((entry) => isActive(entry, now))) {
 				throw new ConflictError('Блюдо уже в стоп-листе');
 			}
 
 			const stoppedAt = now;
-			const expiresAt = new Date(now.getTime() + input.durationMinutes * 60_000);
+			const expiresAt = new Date(
+				now.getTime() + input.durationMinutes * 60_000
+			);
 
-			return deps.stopList.create({
+			const entry = await deps.stopList.create({
 				dishId: dish.id,
 				reason: input.reason.trim(),
 				stoppedAt,
 				expiresAt,
 				returnedAt: null,
 			});
+
+			return toView(
+				{
+					...entry,
+					dish,
+				},
+				now
+			);
 		},
 
 		async listActive(category?: string) {
@@ -48,16 +60,36 @@ export function createStopListService(deps: {
 				.map((e) => toView(e, now));
 		},
 
-		async returnDish(id: string) {
+		async returnDish(id: string): Promise<StopListEntryView> {
 			const now = deps.now();
 			const entry = await deps.stopList.findById(id);
 
-			if (!entry) throw new NotFoundError('Запись стоп-листа не найдена');
-			if (!isActive(entry, now)) {
-				throw new ConflictError('Нельзя вернуть блюдо: запись уже возвращена или истекла');
+			if (!entry) {
+				throw new NotFoundError('Запись стоп-листа не найдена');
 			}
 
-			return deps.stopList.updateReturnedAt(id, now);
+			if (!isActive(entry, now)) {
+				throw new ConflictError(
+					'Нельзя вернуть блюдо: запись уже возвращена или истекла'
+				);
+			}
+
+			const updated = await deps.stopList.updateReturnedAt(id, now);
+
+			const dish = await deps.dishes.findById(updated.dishId);
+
+			if (!dish) {
+				
+				throw new NotFoundError(`Блюдо с id ${updated.dishId} не найдено`);
+			}
+
+			return toView(
+				{
+					...updated,
+					dish,
+				},
+				now
+			);
 		},
 
 		async getHistory(limit: number = 20, offset: number = 0) {
