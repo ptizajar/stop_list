@@ -2,11 +2,13 @@ import { Router } from 'express';
 
 import { createStopListService } from '../services/stopList.service';
 import { dishRepo, stopListRepo } from '../repositories/stopList.repository';
+import { ValidationError } from '../domain/errors';
 
 import {
   validate,
   createStopListSchema,
   stopListQuerySchema,
+  stopListIdSchema,
 } from '../middleware/validate';
 
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -55,17 +57,12 @@ router.post(
 // PATCH /stop-list/:id/return
 router.patch(
   '/stop-list/:id/return',
+  validate(stopListIdSchema),
   asyncHandler(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id;
 
-    if (typeof id !== 'string') {
-      res.status(400).json({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Некорректный ID записи',
-        },
-      });
-      return;
+    if (Array.isArray(id)) {
+      throw new ValidationError('Некорректный ID записи');
     }
 
     const result = await service.returnDish(id);

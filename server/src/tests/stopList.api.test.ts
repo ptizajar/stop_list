@@ -17,7 +17,6 @@ describe('Stop-list API', () => {
 
     dishId = dish.id;
 
-    // Удаляем только записи, созданные этими тестами.
     await prisma.stopListEntry.deleteMany({
       where: {
         reason: {
@@ -46,7 +45,6 @@ describe('Stop-list API', () => {
 
     expect(response.body).toBeInstanceOf(Array);
     expect(response.body.length).toBeGreaterThan(0);
-
     expect(response.body[0]).toHaveProperty('id');
     expect(response.body[0]).toHaveProperty('name');
     expect(response.body[0]).toHaveProperty('category');
@@ -100,6 +98,27 @@ describe('Stop-list API', () => {
     expect(entry.status).toBe('active');
   });
 
+  it('GET /api/stop-list фильтрует по категории', async () => {
+    const response = await request(app)
+      .get('/api/stop-list?category=Кухня')
+      .expect(200);
+
+    expect(response.body).toBeInstanceOf(Array);
+
+    for (const item of response.body) {
+      expect(item.dish.category).toBe('Кухня');
+      expect(item.status).toBe('active');
+    }
+  });
+
+  it('GET /api/stop-list возвращает 422 для неизвестной категории', async () => {
+    const response = await request(app)
+      .get('/api/stop-list?category=Неизвестная')
+      .expect(422);
+
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('PATCH /api/stop-list/:id/return возвращает блюдо', async () => {
     const response = await request(app)
       .patch(`/api/stop-list/${entryId}/return`)
@@ -119,22 +138,26 @@ describe('Stop-list API', () => {
     expect(response.body.error.code).toBe('CONFLICT');
   });
 
-  it('GET /api/stop-list/history возвращает завершённую запись', async () => {
+  it('GET /api/stop-list/history возвращает историю с pagination', async () => {
     const response = await request(app)
-      .get('/api/stop-list/history')
+      .get('/api/stop-list/history?limit=1&offset=0')
       .expect(200);
 
     expect(response.body).toHaveProperty('items');
     expect(response.body).toHaveProperty('total');
-    expect(response.body).toHaveProperty('limit');
-    expect(response.body).toHaveProperty('offset');
+    expect(response.body).toHaveProperty('limit', 1);
+    expect(response.body).toHaveProperty('offset', 0);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0].status).toBe('returned');
+  });
 
-    const entry = response.body.items.find(
-      (item: { id: string }) => item.id === entryId,
-    );
+  it('GET /api/stop-list/history использует limit=20 и offset=0 по умолчанию', async () => {
+    const response = await request(app)
+      .get('/api/stop-list/history')
+      .expect(200);
 
-    expect(entry).toBeDefined();
-    expect(entry.status).toBe('returned');
+    expect(response.body.limit).toBe(20);
+    expect(response.body.offset).toBe(0);
   });
 
   it('POST /api/stop-list возвращает 422 при неправильных данных', async () => {
@@ -151,11 +174,39 @@ describe('Stop-list API', () => {
     expect(response.body.error.message).toBeDefined();
   });
 
+  it('POST /api/stop-list возвращает 404 для неизвестного блюда', async () => {
+    const response = await request(app)
+      .post('/api/stop-list')
+      .send({
+        dishId: 'non-existent-dish',
+        reason: '[TEST] Несуществующее блюдо',
+        durationMinutes: 30,
+      })
+      .expect(404);
+
+    expect(response.body.error.code).toBe('NOT_FOUND');
+  });
+
   it('PATCH /api/stop-list/:id/return возвращает 404 для неизвестной записи', async () => {
     const response = await request(app)
       .patch('/api/stop-list/non-existent-id/return')
       .expect(404);
 
     expect(response.body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('возвращает 400 для некорректного JSON', async () => {
+    const response = await request(app)
+      .post('/api/stop-list')
+      .set('Content-Type', 'application/json')
+      .send('{"dishId":')
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Некорректный JSON в теле запроса',
+      },
+    });
   });
 });

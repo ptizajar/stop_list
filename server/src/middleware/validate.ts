@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
+import { ValidationError } from '../domain/errors';
 
 export const validate = (schema: z.ZodType) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     try {
       schema.parse({
         body: req.body,
@@ -17,19 +18,14 @@ export const validate = (schema: z.ZodType) => {
           .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
           .join(', ');
 
-        return res.status(422).json({
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: formattedMessage,
-          },
-        });
+        next(new ValidationError(formattedMessage));
+        return;
       }
 
       next(error);
     }
   };
 };
-
 export const createStopListSchema = z.object({
   body: z.object({
     dishId: z.string().min(1, 'Укажите ID блюда'),
@@ -64,5 +60,11 @@ export const stopListQuerySchema = z.object({
       .int('offset должен быть целым числом')
       .min(0, 'offset не может быть отрицательным')
       .optional(),
+  }),
+});
+
+export const stopListIdSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, 'Некорректный ID записи'),
   }),
 });

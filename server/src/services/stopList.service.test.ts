@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { ConflictError, NotFoundError } from '../domain/errors';
 import { createStopListService } from './stopList.service';
 import type { Dish, StopListEntry } from '../domain/stopList';
@@ -51,11 +52,9 @@ describe('stopList service', () => {
     const deps = createDeps();
     const service = createStopListService(deps);
 
-    const entry = makeEntry();
-
     deps.dishes.findById.mockResolvedValue(dish);
     deps.stopList.findByDishId.mockResolvedValue([]);
-    deps.stopList.create.mockResolvedValue(entry);
+    deps.stopList.create.mockResolvedValue(makeEntry());
 
     const result = await service.stopDish({
       dishId: dish.id,
@@ -81,9 +80,7 @@ describe('stopList service', () => {
     const service = createStopListService(deps);
 
     deps.dishes.findById.mockResolvedValue(dish);
-    deps.stopList.findByDishId.mockResolvedValue([
-      makeEntry(),
-    ]);
+    deps.stopList.findByDishId.mockResolvedValue([makeEntry()]);
 
     await expect(
       service.stopDish({
@@ -101,19 +98,18 @@ describe('stopList service', () => {
     const service = createStopListService(deps);
 
     deps.dishes.findById.mockResolvedValue(dish);
-
     deps.stopList.findByDishId.mockResolvedValue([
       makeEntry({
         expiresAt: new Date('2026-09-21T10:00:00.000Z'),
       }),
     ]);
 
-    const newEntry = makeEntry({
-      id: 'entry-2',
-      expiresAt: new Date('2026-09-21T11:00:00.000Z'),
-    });
-
-    deps.stopList.create.mockResolvedValue(newEntry);
+    deps.stopList.create.mockResolvedValue(
+      makeEntry({
+        id: 'entry-2',
+        expiresAt: new Date('2026-09-21T11:00:00.000Z'),
+      }),
+    );
 
     const result = await service.stopDish({
       dishId: dish.id,
@@ -121,31 +117,28 @@ describe('stopList service', () => {
       durationMinutes: 30,
     });
 
-    expect(deps.stopList.create).toHaveBeenCalled();
     expect(result.id).toBe('entry-2');
+    expect(deps.stopList.create).toHaveBeenCalled();
   });
 
   it('возвращает блюдо в продажу', async () => {
     const deps = createDeps();
     const service = createStopListService(deps);
 
-    const entry = makeEntry();
-
-    const returnedEntry = makeEntry({
-      returnedAt: deps.now(),
-    });
-
-    deps.stopList.findById.mockResolvedValue(entry);
-    deps.stopList.updateReturnedAt.mockResolvedValue(returnedEntry);
+    deps.stopList.findById.mockResolvedValue(makeEntry());
+    deps.stopList.updateReturnedAt.mockResolvedValue(
+      makeEntry({
+        returnedAt: deps.now(),
+      }),
+    );
     deps.dishes.findById.mockResolvedValue(dish);
 
-    const result = await service.returnDish(entry.id);
+    const result = await service.returnDish('entry-1');
 
     expect(deps.stopList.updateReturnedAt).toHaveBeenCalledWith(
-      entry.id,
+      'entry-1',
       deps.now(),
     );
-
     expect(result.status).toBe('returned');
     expect(result.minutesLeft).toBe(0);
     expect(result.returnedAt).toBe(deps.now().toISOString());
@@ -184,5 +177,65 @@ describe('stopList service', () => {
 
     expect(deps.stopList.findByDishId).not.toHaveBeenCalled();
     expect(deps.stopList.create).not.toHaveBeenCalled();
+  });
+
+  it('принимает минимальные 15 минут', async () => {
+    const deps = createDeps();
+    const service = createStopListService(deps);
+
+    deps.dishes.findById.mockResolvedValue(dish);
+    deps.stopList.findByDishId.mockResolvedValue([]);
+    deps.stopList.create.mockResolvedValue(
+      makeEntry({
+        expiresAt: new Date(deps.now().getTime() + 15 * 60_000),
+      }),
+    );
+
+    const result = await service.stopDish({
+      dishId: dish.id,
+      reason: 'Закончился продукт',
+      durationMinutes: 15,
+    });
+
+    expect(result.minutesLeft).toBe(15);
+  });
+
+  it('принимает максимальные 720 минут', async () => {
+    const deps = createDeps();
+    const service = createStopListService(deps);
+
+    deps.dishes.findById.mockResolvedValue(dish);
+    deps.stopList.findByDishId.mockResolvedValue([]);
+    deps.stopList.create.mockResolvedValue(
+      makeEntry({
+        expiresAt: new Date(deps.now().getTime() + 720 * 60_000),
+      }),
+    );
+
+    const result = await service.stopDish({
+      dishId: dish.id,
+      reason: 'Закончился продукт',
+      durationMinutes: 720,
+    });
+
+    expect(result.minutesLeft).toBe(720);
+  });
+
+  it('считает запись истёкшей ровно в момент expiresAt', async () => {
+    const deps = createDeps();
+    const service = createStopListService(deps);
+
+    deps.stopList.findAllWithDish.mockResolvedValue([
+      {
+        ...makeEntry({
+          expiresAt: deps.now(),
+        }),
+        dish,
+      },
+    ]);
+
+    const result = await service.listActive();
+
+    expect(result).toEqual([]);
   });
 });
